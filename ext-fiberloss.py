@@ -5,6 +5,8 @@ import itertools
 import argparse
 import astropy.io.fits as fits
 import fitsio
+import pickle
+import itertools
 import numpy as np
 import pylab as pl
 import multiprocessing
@@ -27,7 +29,9 @@ from   desispec.tilecompleteness import compute_tile_completeness_table,merge_ti
 from   desispec.skymag import compute_skymag
 from   desispec.efftime import compute_efftime
 
-def compute_tsnr_values(cframe_filename,cframe_hdulist,night,expid,camera,specprod_dir, alpha_only=False) :
+np.random.seed(314)
+
+def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_only=False, nominal_seeing_fwhm=1.1) :
     """                                                                                                                                                                                                                          
     Computes TSNR values                                                                                                                                                                                                          
     Args:                                                                                                                                                                                                                        
@@ -41,6 +45,8 @@ def compute_tsnr_values(cframe_filename,cframe_hdulist,night,expid,camera,specpr
     Returns: astropy.table.Table obkect with TSNR values                                                                                                                                                                        
     """
 
+    cframe_hdulist = fits.open(cframe_filename)
+    
     calib  = findfile('fluxcalib', night=night, expid=expid,
                       camera=camera, specprod_dir=specprod_dir)
     flat = cframe_hdulist[0].header['FIBERFLT']
@@ -62,7 +68,7 @@ def compute_tsnr_values(cframe_filename,cframe_hdulist,night,expid,camera,specpr
     skymodel=read_sky(sky)
 
     results, alpha = calc_tsnr2(frame, fiberflat=fiberflat,
-                                skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only)
+                                skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, nominal_seeing_fwhm=nominal_seeing_fwhm)
 
     table=Table()
     for k in results:
@@ -71,15 +77,66 @@ def compute_tsnr_values(cframe_filename,cframe_hdulist,night,expid,camera,specpr
 
     return table
 
+def wrapper(args):
+    return compute_tsnr_values(**args)
 
 if __name__ == '__main__':
-    night           = '20210319'
-    expid           = '00081093'
-    camera          = 'b1'
+    arms            =  ['b','r','z']
+    arms            =  ['r']
+
+    petals          =  np.arange(0,10,1).astype(str)
+
+    cameras         =  np.array([a+b for a in arms for b in petals])
 
     specprod_dir    = '/project/projectdirs/desi/spectro/redux/denali/'
-    
-    cframe_filename = '{}/exposures/{}/{}/cframe-{}-{}.fits'.format(specprod_dir, night, expid, camera, expid)
-    cframe_hdulist  = fits.open(cframe_filename) 
+        
+    exposures       = Table.read('/project/projectdirs/desi/survey/observations/SV1/sv1-exposures.fits')
+    exposures       = exposures[exposures['TARGETS'] == 'BGS+MWS']
+    exposures       = exposures[exposures['GFA_FWHM_ASEC'] >= 0.0]
+    exposures.pprint()
 
+    for x in exposures.dtype.names:
+        print(x)
+
+    exit(0)
+        
+    # print(len(exposures))
+    
+    rows            = np.random.randint(0, high=len(exposures), size=600, dtype=int)
+    
+    args = []
+    auxs = []
+    
+    for row in rows:
+        night            = exposures['NIGHT'][row]
+        expid            = exposures['EXPID'][row]
+        efftime_dark     = exposures['EFFTIME_DARK'][row]
+        efftime_bright   = exposures['EFFTIME_BRIGHT'][row]
+        camera           = np.random.choice(cameras, replace=True, size=1)[0]
+        exp_seeing_fwhm  = exposures['GFA_FWHM_ASEC'][row]        
+        cframe_filename  = '{}/exposures/{}/{:08d}/cframe-{}-{:08d}.fits'.format(specprod_dir, night, expid, camera, expid)
+
+        print(expid, night, camera, exp_seeing_fwhm, cframe_filename)
+        
+        if os.path.exists(cframe_filename):
+            auxs.append({'row': row, 'efftime_dark': efftime_dark, 'efftime_bright': efftime_bright, 'seeing_fwhm': exp_seeing_fwhm})
+            args.append({'cframe_filename':cframe_filename,'night':night,'expid':expid,'camera':camera,\
+                         'specprod_dir':specprod_dir,'alpha_only':False, 'nominal_seeing_fwhm': exp_seeing_fwhm})
+
+        else:
+            print('Failed to find: {}'.format(cframe_filename))
+            continue
+            
+    with multiprocessing.Pool(8) as pool:
+        results = pool.map(wrapper, args)
+    
+    for aux, arg, result in zip(auxs, args, results):
+        aux.update(arg)
+        aux.update({'tsnr2_bgs_r': np.mean(result['TSNR2_BGS_R'])})
+
+    pickle.dump(auxs, open('/global/cscratch1/sd/mjwilson/trash/aux_nooffsets.pickle', 'wb'))
+        
+    # pl.plot(aux['efftime_bright'], np.mean(result['TSNR2_BGS_R']), marker='.', lw=0.0, c='k', markersize=5)
+    # pl.show()
+                
     print('\n\nDone.\n\n')
