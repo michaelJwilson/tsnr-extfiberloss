@@ -16,6 +16,7 @@ def surveyspeed_fiberfrac(exposure_seeing_fwhm, ttype='bgs'):
         return np.exp(0.0341 * np.log(exposure_seeing_fwhm)**3 -0.3611 * np.log(exposure_seeing_fwhm)**2 -0.7175 * np.log(exposure_seeing_fwhm) -1.5643)
 
     else:
+        # psf.
         return np.exp(0.0989 * np.log(exposure_seeing_fwhm)**3 -0.5588 * np.log(exposure_seeing_fwhm)**2 -0.9708 * np.log(exposure_seeing_fwhm) -0.4473)
     
 def fa_fiberfrac(exposure_seeing_fwhm, point=False):
@@ -24,10 +25,10 @@ def fa_fiberfrac(exposure_seeing_fwhm, point=False):
     offsets_um = np.zeros_like(sigmas_um)
 
     if point:
-        return  fa.value("POINT",sigmas_um)
+        return  fa.value("POINT",sigmas_um,offsets=offsets_um)
 
     else:
-        return  fa.value("BULGE",sigmas_um,1.50 * np.ones_like(sigmas_um))
+        return  fa.value("BULGE",sigmas_um,offsets=offsets_um,hlradii=1.50 * np.ones_like(sigmas_um))
 
 
 if __name__ == '__main__':
@@ -37,40 +38,18 @@ if __name__ == '__main__':
     # fname = '/global/cscratch1/sd/mjwilson/trash/aux.pickle'                                                                                                                                                                      
     # fname = '/global/cscratch1/sd/mjwilson/trash/aux_poisson.pickle'                                                                                                                                                          
     # fname = '/global/cscratch1/sd/mjwilson/trash/aux_nooffsets.pickle'                                                                                                                                                                     
+
     auxs  = pickle.load( open( fname , "rb" ) )
 
     to_solve = []
 
+    nominal_bgs_fiberfrac = 0.195
+    nominal_psf_fiberfrac = 0.582
+    
     for aux in auxs:        
         to_solve.append([aux['efftime_bright'], aux['tsnr2_bgs_r'], aux['seeing_fwhm']])
 
-    to_solve = np.array(to_solve)
-    
-    fig, axes = plt.subplots(1,3,figsize=(15,5))
-    
-    axes[0].hist(to_solve[:,2], bins=np.arange(0.0, 4.0, 0.05), histtype='step')
-
-    #
-    axes[1].plot(fwhms, surveyspeed_fiberfrac(fwhms), label='bgs survey speed')
-    axes[1].plot(fwhms, fa_fiberfrac(fwhms), label='fa - zero offset')
-
-    axes[1].set_xlabel('SEEING FWHM')
-    axes[1].set_ylabel('FIBERFRAC')
-    
-    axes[1].legend(frameon=False)
-
-    #
-    axes[2].plot(fwhms, surveyspeed_fiberfrac(fwhms, ttype='backup'), label='bgs survey speed')
-    axes[2].plot(fwhms, fa_fiberfrac(fwhms, point=True), label='fa - zero offset')
-
-    axes[2].set_xlabel('SEEING FWHM')
-    axes[2].set_ylabel('FIBERFRAC')
-
-    axes[2].legend(frameon=False)
-    
-    # pl.show()
-
-    pl.clf()
+    to_solve  = np.array(to_solve)
 
     exposures = Table.read('/project/projectdirs/desi/survey/observations/SV1/sv1-exposures.fits')
     exposures = exposures[exposures['TARGETS'] == 'BGS+MWS']
@@ -79,10 +58,38 @@ if __name__ == '__main__':
     exposures.sort('GFA_FWHM_ASEC')
     exposures.pprint()
 
-    pl.plot(exposures['GFA_FWHM_ASEC'], exposures['GFA_FIBER_FRACFLUX_BGS'])
-    pl.plot(exposures['GFA_FWHM_ASEC'], surveyspeed_fiberfrac(exposures['GFA_FWHM_ASEC'], ttype='bgs'), c='k')
-    pl.xlabel('GFA_FWHM_ASEC')
-    pl.ylabel('GFA_FIBER_FRACFLUX_BGS')
+    for x in exposures.dtype.names:
+        print(x)
+    
+    fig, axes = plt.subplots(1,3,figsize=(15,5))
+    
+    axes[0].hist(to_solve[:,2], bins=np.arange(0.0, 4.0, 0.05), histtype='step')
+    axes[0].set_xlabel('SEEING FWHM')
+    
+    #
+    axes[1].plot(fwhms, surveyspeed_fiberfrac(fwhms, ttype='bgs')**2, label='bgs survey speed', lw=0.5)
+    axes[1].plot(fwhms, fa_fiberfrac(fwhms, point=False)**2, label='fa - zero offset', lw=0.5)
+    axes[1].plot(exposures['GFA_FWHM_ASEC'], exposures['GFA_FIBER_FRACFLUX_BGS']**2, lw=0.5, marker=',')
+    
+    axes[1].axvline(1.1, c='k', lw=0.5)
+    
+    axes[1].set_xlabel('SEEING FWHM')
+    axes[1].set_ylabel('FIBERFRAC**2')
+    
+    axes[1].legend(frameon=False)
+
+    #
+    axes[2].plot(fwhms, surveyspeed_fiberfrac(fwhms, ttype='backup')**2, label='bgs survey speed', lw=0.5)
+    axes[2].plot(fwhms, fa_fiberfrac(fwhms, point=True)**2, label='fa - zero offset', lw=0.5)
+    axes[2].plot(exposures['GFA_FWHM_ASEC'], exposures['GFA_FIBER_FRACFLUX']**2, lw=0.5, marker=',')
+    
+    axes[2].axvline(1.1, c='k', lw=0.5)
+    
+    axes[2].set_xlabel('SEEING FWHM')
+    axes[2].set_ylabel('FIBERFRAC**2')
+
+    axes[2].legend(frameon=False)
+    
     pl.show()
     
     print('\nDone.\n')

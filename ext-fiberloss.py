@@ -88,18 +88,20 @@ if __name__ == '__main__':
 
     cameras         =  np.array([a+b for a in arms for b in petals])
 
-    specprod_dir    = '/project/projectdirs/desi/spectro/redux/denali/'
+    specprod_dir    = '/project/projectdirs/desi/spectro/redux/daily/'
         
-    exposures       = Table.read('/project/projectdirs/desi/survey/observations/SV1/sv1-exposures.fits')
-    exposures       = exposures[exposures['TARGETS'] == 'BGS+MWS']
-    exposures       = exposures[exposures['GFA_FWHM_ASEC'] >= 0.0]
+    # exposures     = Table.read('/project/projectdirs/desi/survey/observations/SV1/sv1-exposures.fits')
+    exposures       = Table.read('/project/projectdirs/desi/spectro/redux/daily/tsnr-exposures.fits', 'TSNR2_EXPID')
+    exposures       = exposures[exposures['SURVEY'] == 'sv3']
+    exposures       = exposures[exposures['FAFLAVOR'] == 'sv3bright']
+    # exposures     = exposures[exposures['TARGETS'] == 'BGS+MWS']
+    # exposures     = exposures[exposures['GFA_FWHM_ASEC'] >= 0.0]
     exposures.pprint()
 
+    '''
     for x in exposures.dtype.names:
         print(x)
-
-    exit(0)
-        
+    ''' 
     # print(len(exposures))
     
     rows            = np.random.randint(0, high=len(exposures), size=600, dtype=int)
@@ -110,18 +112,22 @@ if __name__ == '__main__':
     for row in rows:
         night            = exposures['NIGHT'][row]
         expid            = exposures['EXPID'][row]
-        efftime_dark     = exposures['EFFTIME_DARK'][row]
-        efftime_bright   = exposures['EFFTIME_BRIGHT'][row]
+        efftime_dark     = exposures['EFFTIME_DARK_GFA'][row]
+        efftime_bright   = exposures['EFFTIME_BRIGHT_GFA'][row]
+
+        seeing_etc       = exposures['SEEING_ETC'][row]
+        efftime_etc      = exposures['EFFTIME_ETC'][row]
+        
         camera           = np.random.choice(cameras, replace=True, size=1)[0]
-        exp_seeing_fwhm  = exposures['GFA_FWHM_ASEC'][row]        
+        exp_seeing_fwhm  = exposures['SEEING_GFA'][row]        
         cframe_filename  = '{}/exposures/{}/{:08d}/cframe-{}-{:08d}.fits'.format(specprod_dir, night, expid, camera, expid)
 
         print(expid, night, camera, exp_seeing_fwhm, cframe_filename)
         
         if os.path.exists(cframe_filename):
-            auxs.append({'row': row, 'efftime_dark': efftime_dark, 'efftime_bright': efftime_bright, 'seeing_fwhm': exp_seeing_fwhm})
+            auxs.append({'row': row, 'efftime_dark': efftime_dark, 'efftime_bright': efftime_bright, 'seeing_fwhm': exp_seeing_fwhm, 'expid': expid, 'seeing_etc': seeing_etc, 'efftime_etc': efftime_etc})
             args.append({'cframe_filename':cframe_filename,'night':night,'expid':expid,'camera':camera,\
-                         'specprod_dir':specprod_dir,'alpha_only':False, 'nominal_seeing_fwhm': exp_seeing_fwhm})
+                         'specprod_dir':specprod_dir,'alpha_only':False, 'nominal_seeing_fwhm': None}) # exp_seeing_fwhm
 
         else:
             print('Failed to find: {}'.format(cframe_filename))
@@ -132,9 +138,9 @@ if __name__ == '__main__':
     
     for aux, arg, result in zip(auxs, args, results):
         aux.update(arg)
-        aux.update({'tsnr2_bgs_r': np.mean(result['TSNR2_BGS_R'])})
+        aux.update({'tsnr2_bgs_r': np.median(result['TSNR2_BGS_R'])})
 
-    pickle.dump(auxs, open('/global/cscratch1/sd/mjwilson/trash/aux_nooffsets.pickle', 'wb'))
+    pickle.dump(auxs, open('/global/cscratch1/sd/mjwilson/trash/onepercent_noextended.pickle', 'wb'))
         
     # pl.plot(aux['efftime_bright'], np.mean(result['TSNR2_BGS_R']), marker='.', lw=0.0, c='k', markersize=5)
     # pl.show()
