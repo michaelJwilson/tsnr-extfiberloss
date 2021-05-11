@@ -76,12 +76,10 @@ fig, axes = plt.subplots(1, 2, figsize=(10,5))
 
 for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
     isin = tables['program'] == program
-
-    idx = np.argsort(tables['tsnr2_spec_r'][isin])
     
-    res = stats.linregress(tables['tsnr2_spec_r'][isin][idx], tables['efftime'][isin][idx])
-
-    axes[i].plot(tables['tsnr2_spec_r'][isin], res.intercept + res.slope * tables['tsnr2_spec_r'][isin], 'k', lw=0.5)
+    gradient=np.sum(tables['tsnr2_spec_r'][isin] * tables['efftime'][isin]) / np.sum(tables['tsnr2_spec_r'][isin]**2.)
+    
+    axes[i].plot(tables['tsnr2_spec_r'][isin], gradient * tables['tsnr2_spec_r'][isin], 'k', lw=0.5)
     
     axes[i].scatter(tables['tsnr2_spec_r'][isin], tables['efftime'][isin], marker=marker, lw=0.0, s=14)
     axes[i].set_xlabel('TSNR2_SPEC_R')
@@ -91,3 +89,19 @@ for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
     # pl.colorbar(label='SEEING FWHM')
     
 pl.show() 
+pl.clf()
+'''
+for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
+    isin = tables['program'] == program
+
+    gradient=np.sum(tables['tsnr2_spec_r'][isin], tables['efftime'][isin]) / np.sum(tables['tsnr2_spec_r'][isin]**2.)
+    
+    axes[i].hist(tables['tsnr2_spec_r'][isin] / tables['tsnr2_spec_r'][isin], 'k', lw=0.5)
+
+    axes[i].scatter(tables['tsnr2_spec_r'][isin], tables['efftime'][isin], marker=marker, lw=0.0, s=14)
+    axes[i].set_xlabel('TSNR2_SPEC_R')
+    axes[i].set_ylabel('efftime_etc')
+    axes[i].set_title('{} {} (pearson r: {:.3f})'.format(program, camera, stats.pearsonr(tables['tsnr2_spec_r'][isin], tables['efftime'][isin])[0]))
+
+    # pl.colorbar(label='SEEING FWHM') 
+'''
