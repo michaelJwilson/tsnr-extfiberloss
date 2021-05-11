@@ -24,16 +24,10 @@ fname   = '/global/cscratch1/sd/mjwilson/trash/test_20210510.pickle'
 
 auxs    = pickle.load( open( fname , "rb" ) ) 
 
-to_solve = []
-
 tables = []
-
 camera = 'r0'
 
 for aux in auxs:
-    # print(aux['seeing_fwhm'])
-    # to_solve.append([aux['efftime_etc'], aux['tsnr2_bgs_r'], aux['seeing_etc']])
-
     if aux['program'] == 'BRIGHT':
         aux['tsnr2_spec_r'] = aux['tsnr2_bgs_r']
     else:
@@ -49,13 +43,10 @@ for aux in auxs:
             etcdata = json.load(f)
     except:
         print('failed to find {}'.format(etcpath))
-
         continue
             
     aux.update(etcdata['expinfo'])
-    
-    to_solve.append([aux['tsnr2_spec_r'], etcdata['expinfo']['efftime'], aux['tsnr2_bgs_r'], aux['tsnr2_elg_r']])  
-    
+        
     L1  = list(aux.keys())
     L2  = list(aux.values()) 
     
@@ -66,9 +57,14 @@ for aux in auxs:
 #  'airmass': 1.181809, 'atm_extinction': 0.981091, 'realtime': 452.418579, 'signal': 0.432851, 'background': 1.364067, 'transp_obs': 0.708089, 'ffrac_psf': 0.308933, 'ffrac_elg': 0.249342, 'ffrac_bgs':, 'thru_psf': 0.221507
 # 
 tables = vstack(tables)
+'''
+for x in tables.dtype.names:
+    print(x)
+'''
+
 tables = tables['expid', 'tileid', 'night', 'program', 'airmass', 'atm_extinction', 'realtime', 'signal', 'background', 'transp_obs',\
                 'ffrac_psf', 'ffrac_elg', 'ffrac_bgs', 'thru_psf', 'req_efftime', 'efftime', 'tsnr2_spec_r', 'tsnr2_bgs_r', 'tsnr2_elg_r',\
-                'tsnr_seeing', 'tsnr_alpha']
+                'tsnr_seeing', 'tsnr_alpha', 'tsnr2_elg_r_signal', 'tsnr2_elg_r_background', 'tsnr2_qso_r_signal', 'tsnr2_qso_r_background']
 
 tables.sort('tsnr2_spec_r')
 
@@ -94,6 +90,7 @@ tables.pprint()
 
 tables.write(fname.replace('.pickle', '.fits'), format='fits', overwrite=True)
 
+'''
 #
 fig, axes = plt.subplots(1, 2, figsize=(10,5))
 
@@ -104,12 +101,12 @@ for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
         
     axes[i].scatter(tables['tsnr2_spec_r'][isin], tables['efftime'][isin] / (gradient * tables['tsnr2_spec_r'][isin]), marker=marker, lw=0.0, s=14)
     axes[i].set_xlabel('TSNR2_SPEC_R')
-    axes[i].set_ylabel('efftime_etc / TSNR2_SPEC_R')
+    axes[i].set_ylabel('efftime_etc / (TSNR2_SPEC_R | EFFTIME_GFA)')
     axes[i].set_title('{} {} (pearson r: {:.3f})'.format(program, camera, stats.pearsonr(tables['tsnr2_spec_r'][isin], tables['efftime'][isin])[0]))
     
 pl.show() 
 pl.clf()
-
+'''
 '''
 for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
     isin = tables['program'] == program

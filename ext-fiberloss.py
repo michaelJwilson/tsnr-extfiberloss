@@ -32,7 +32,7 @@ from   desispec.efftime import compute_efftime
 
 np.random.seed(314)
 
-def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_only=False) :
+def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_only=False, model_extfiberloss=False, components=True) :
     """                                                                                                                                                                                                                          
     Computes TSNR values                                                                                                                                                                                                          
     Args:                                                                                                                                                                                                                        
@@ -68,12 +68,20 @@ def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_o
     fluxcalib=read_flux_calibration(calib)
     skymodel=read_sky(sky)
 
-    results, alpha, seeing_fwhm  = calc_tsnr2(frame, fiberflat=fiberflat,
-                                              skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only)
+    if components:
+        results, alpha, seeing_fwhm, components = calc_tsnr2(frame, fiberflat=fiberflat,
+                                                             skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, model_extfiberloss=model_extfiberloss, components=True)
+    else:
+        results, alpha, seeing_fwhm = calc_tsnr2(frame, fiberflat=fiberflat,
+                                                 skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, model_extfiberloss=model_extfiberloss)
     
     table=Table()
     for k in results:
         table[k] = results[k].astype(np.float32)
+
+    for k in components:
+        table[k] = components[k].astype(np.float32)
+        
     table["TSNR2_ALPHA_"+camera[0].upper()] = np.repeat(alpha,len(frame.flux))
     table["TSNR2_SEEING_"+camera[0].upper()] = np.repeat(seeing_fwhm,len(frame.flux)) 
     
@@ -92,6 +100,8 @@ if __name__ == '__main__':
 
     specprod_dir    = '/project/projectdirs/desi/spectro/redux/daily/'
 
+    model_extfiberloss = False
+    
     # exposures     = Table.read('/project/projectdirs/desi/survey/observations/SV1/sv1-exposures.fits')
     # exposures       = Table.read('/project/projectdirs/desi/spectro/redux/daily/tsnr-exposures.fits', 'TSNR2_EXPID')
     
@@ -154,14 +164,19 @@ if __name__ == '__main__':
         night = np.int(parts[-3])
         expid = np.int(parts[-2])
 
-        camera = x.split('-')[-2]  # camera = 'r0'
+        camera = x.split('-')[-2]
+
+        if camera != 'r0':
+            print('skippind {} of {}'.format(camera, expid))
+            
+            continue
 
         cframe_filename  = '{}/exposures/{}/{:08d}/cframe-{}-{:08d}.fits'.format(specprod_dir, night, expid, camera, expid)
 
         meta = fits.open(cframe_filename)[0].header
         
         auxs.append({'row': row, 'night': night, 'expid': expid, 'camera': camera, 'fibassgb': meta['FIBASSGN'], 'program': meta['PROGRAM'], 'tileid': meta['TILEID']})
-        args.append({'cframe_filename':cframe_filename,'night':night,'expid':expid,'camera':camera, 'specprod_dir':specprod_dir,'alpha_only':False})     
+        args.append({'cframe_filename':cframe_filename,'night':night,'expid':expid,'camera':camera, 'specprod_dir':specprod_dir,'alpha_only':False , 'components': True, 'model_extfiberloss': model_extfiberloss})     
         
         print(night, expid, camera, cframe_filename)
         
@@ -173,12 +188,15 @@ if __name__ == '__main__':
 
         aux.update({'tsnr_seeing': result['TSNR2_SEEING_R'][0]})
         aux.update({'tsnr_alpha':  result['TSNR2_ALPHA_R'][0]})
-        
-        for band in ['R']:
-            for tt in ['ELG', 'BGS']:
-                aux.update({'tsnr2_{}_{}'.format(tt.lower(), band.lower()): np.median(result['TSNR2_{}_{}'.format(tt, band)])})
 
-    pickle.dump(auxs, open('/global/cscratch1/sd/mjwilson/trash/test_20210510.pickle', 'wb'))
+        for band in ['R']:
+            for tt in ['ELG', 'BGS', 'QSO']:
+                aux.update({'tsnr2_{}_{}'.format(tt.lower(), band.lower()): np.median(result['TSNR2_{}_{}'.format(tt, band)])})
+                
+                aux.update({'tsnr2_{}_{}_signal'.format(tt.lower(), band.lower()): np.median(result['TSNR2_{}_{}_SIGNAL'.format(tt, band)])})
+                aux.update({'tsnr2_{}_{}_background'.format(tt.lower(), band.lower()): np.median(result['TSNR2_{}_{}_BACKGROUND'.format(tt, band)])})
+                
+    pickle.dump(auxs, open('/global/cscratch1/sd/mjwilson/trash/test_20210510_extfiberloss_{:d}.pickle'.format(np.int(model_extfiberloss)), 'wb'))
         
     # pl.plot(aux['efftime_bright'], np.mean(result['TSNR2_BGS_R']), marker='.', lw=0.0, c='k', markersize=5)
     # pl.show()
