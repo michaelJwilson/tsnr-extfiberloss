@@ -61,8 +61,9 @@ for aux in auxs:
 #  'airmass': 1.181809, 'atm_extinction': 0.981091, 'realtime': 452.418579, 'signal': 0.432851, 'background': 1.364067, 'transp_obs': 0.708089, 'ffrac_psf': 0.308933, 'ffrac_elg': 0.249342, 'ffrac_bgs':, 'thru_psf': 0.221507
 # 
 tables = vstack(tables)
-tables = tables['expid', 'night', 'program', 'airmass', 'atm_extinction', 'realtime', 'signal', 'background', 'transp_obs',\
-                'ffrac_psf', 'ffrac_elg', 'ffrac_bgs', 'thru_psf', 'efftime', 'tsnr2_spec_r', 'tsnr2_bgs_r', 'tsnr2_elg_r', 'tsnr_seeing', 'tsnr_alpha']
+tables = tables['expid', 'tileid', 'night', 'program', 'airmass', 'atm_extinction', 'realtime', 'signal', 'background', 'transp_obs',\
+                'ffrac_psf', 'ffrac_elg', 'ffrac_bgs', 'thru_psf', 'req_efftime', 'efftime', 'tsnr2_spec_r', 'tsnr2_bgs_r', 'tsnr2_elg_r',\
+                'tsnr_seeing', 'tsnr_alpha']
 
 tables.sort('tsnr2_spec_r')
 tables.pprint()
@@ -75,9 +76,14 @@ fig, axes = plt.subplots(1, 2, figsize=(10,5))
 
 for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
     isin = tables['program'] == program
+
+    idx = np.argsort(tables['tsnr2_spec_r'][isin])
+    
+    res = stats.linregress(tables['tsnr2_spec_r'][isin][idx], tables['efftime'][isin][idx])
+
+    axes[i].plot(tables['tsnr2_spec_r'][isin], res.intercept + res.slope * tables['tsnr2_spec_r'][isin], 'k', lw=0.5)
     
     axes[i].scatter(tables['tsnr2_spec_r'][isin], tables['efftime'][isin], marker=marker, lw=0.0, s=14)
-
     axes[i].set_xlabel('TSNR2_SPEC_R')
     axes[i].set_ylabel('efftime_etc')
     axes[i].set_title('{} {} (pearson r: {:.3f})'.format(program, camera, stats.pearsonr(tables['tsnr2_spec_r'][isin], tables['efftime'][isin])[0]))

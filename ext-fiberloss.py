@@ -160,7 +160,7 @@ if __name__ == '__main__':
 
         meta = fits.open(cframe_filename)[0].header
         
-        auxs.append({'row': row, 'night': night, 'expid': expid, 'camera': camera, 'fibassgb': meta['FIBASSGN'], 'program': meta['PROGRAM']})
+        auxs.append({'row': row, 'night': night, 'expid': expid, 'camera': camera, 'fibassgb': meta['FIBASSGN'], 'program': meta['PROGRAM'], 'tileid': meta['TILEID']})
         args.append({'cframe_filename':cframe_filename,'night':night,'expid':expid,'camera':camera, 'specprod_dir':specprod_dir,'alpha_only':False})     
         
         print(night, expid, camera, cframe_filename)
