@@ -70,7 +70,7 @@ def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_o
 
     results, alpha, seeing_fwhm  = calc_tsnr2(frame, fiberflat=fiberflat,
                                               skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only)
-
+    
     table=Table()
     for k in results:
         table[k] = results[k].astype(np.float32)

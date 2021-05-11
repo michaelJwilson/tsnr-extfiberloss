@@ -41,12 +41,17 @@ for aux in auxs:
         
     if aux['camera'] != camera:
         continue
-    
-    etcpath=findfile('etc', night=aux['night'], expid=aux['expid'])
 
-    with open(etcpath) as f:
-        etcdata = json.load(f)
+    try:
+        etcpath=findfile('etc', night=aux['night'], expid=aux['expid'])
 
+        with open(etcpath) as f:
+            etcdata = json.load(f)
+    except:
+        print('failed to find {}'.format(etcpath))
+
+        continue
+            
     aux.update(etcdata['expinfo'])
     
     to_solve.append([aux['tsnr2_spec_r'], etcdata['expinfo']['efftime'], aux['tsnr2_bgs_r'], aux['tsnr2_elg_r']])  
@@ -78,15 +83,11 @@ for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
     isin = tables['program'] == program
     
     gradient=np.sum(tables['tsnr2_spec_r'][isin] * tables['efftime'][isin]) / np.sum(tables['tsnr2_spec_r'][isin]**2.)
-    
-    axes[i].plot(tables['tsnr2_spec_r'][isin], gradient * tables['tsnr2_spec_r'][isin], 'k', lw=0.5)
-    
-    axes[i].scatter(tables['tsnr2_spec_r'][isin], tables['efftime'][isin], marker=marker, lw=0.0, s=14)
+        
+    axes[i].scatter(tables['tsnr2_spec_r'][isin], tables['efftime'][isin] / (gradient * tables['tsnr2_spec_r'][isin]), marker=marker, lw=0.0, s=14)
     axes[i].set_xlabel('TSNR2_SPEC_R')
-    axes[i].set_ylabel('efftime_etc')
+    axes[i].set_ylabel('efftime_etc / TSNR2_SPEC_R')
     axes[i].set_title('{} {} (pearson r: {:.3f})'.format(program, camera, stats.pearsonr(tables['tsnr2_spec_r'][isin], tables['efftime'][isin])[0]))
-
-    # pl.colorbar(label='SEEING FWHM')
     
 pl.show() 
 pl.clf()
@@ -94,14 +95,12 @@ pl.clf()
 for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
     isin = tables['program'] == program
 
-    gradient=np.sum(tables['tsnr2_spec_r'][isin], tables['efftime'][isin]) / np.sum(tables['tsnr2_spec_r'][isin]**2.)
+    gradient=np.sum(tables['tsnr2_spec_r'][isin] * tables['efftime'][isin]) / np.sum(tables['tsnr2_spec_r'][isin]**2.)
     
-    axes[i].hist(tables['tsnr2_spec_r'][isin] / tables['tsnr2_spec_r'][isin], 'k', lw=0.5)
+    axes[i].hist(tables['efftime'][isin] / (gradient * tables['tsnr2_spec_r'][isin]), histtype='step', bins=np.arange(0.7, 1.3, 0.05))
 
-    axes[i].scatter(tables['tsnr2_spec_r'][isin], tables['efftime'][isin], marker=marker, lw=0.0, s=14)
-    axes[i].set_xlabel('TSNR2_SPEC_R')
-    axes[i].set_ylabel('efftime_etc')
-    axes[i].set_title('{} {} (pearson r: {:.3f})'.format(program, camera, stats.pearsonr(tables['tsnr2_spec_r'][isin], tables['efftime'][isin])[0]))
+    axes[i].set_ylabel('Counts')
+    axes[i].set_title('{} {}'.format(program, camera))
 
-    # pl.colorbar(label='SEEING FWHM') 
+pl.show()
 '''
