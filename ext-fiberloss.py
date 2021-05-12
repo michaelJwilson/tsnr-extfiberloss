@@ -32,7 +32,7 @@ from   desispec.efftime import compute_efftime
 
 np.random.seed(314)
 
-def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_only=False, model_extfiberloss=False, components=True) :
+def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_only=False, model_extfiberloss=False, components=True, no_offsets=False) :
     """                                                                                                                                                                                                                          
     Computes TSNR values                                                                                                                                                                                                          
     Args:                                                                                                                                                                                                                        
@@ -70,10 +70,10 @@ def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_o
 
     if components:
         results, alpha, seeing_fwhm, components = calc_tsnr2(frame, fiberflat=fiberflat,
-                                                             skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, model_extfiberloss=model_extfiberloss, components=True)
+                                                             skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, model_extfiberloss=model_extfiberloss, components=True, no_offsets=no_offsets)
     else:
         results, alpha, seeing_fwhm = calc_tsnr2(frame, fiberflat=fiberflat,
-                                                 skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, model_extfiberloss=model_extfiberloss)
+                                                 skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, model_extfiberloss=model_extfiberloss, no_offsets=no_offsets)
     
     table=Table()
     for k in results:
@@ -100,7 +100,8 @@ if __name__ == '__main__':
 
     specprod_dir    = '/project/projectdirs/desi/spectro/redux/daily/'
 
-    model_extfiberloss = False
+    model_extfiberloss = True
+    no_offsets         = True
     
     # exposures     = Table.read('/project/projectdirs/desi/survey/observations/SV1/sv1-exposures.fits')
     # exposures       = Table.read('/project/projectdirs/desi/spectro/redux/daily/tsnr-exposures.fits', 'TSNR2_EXPID')
@@ -176,7 +177,8 @@ if __name__ == '__main__':
         meta = fits.open(cframe_filename)[0].header
         
         auxs.append({'row': row, 'night': night, 'expid': expid, 'camera': camera, 'fibassgb': meta['FIBASSGN'], 'program': meta['PROGRAM'], 'tileid': meta['TILEID']})
-        args.append({'cframe_filename':cframe_filename,'night':night,'expid':expid,'camera':camera, 'specprod_dir':specprod_dir,'alpha_only':False , 'components': True, 'model_extfiberloss': model_extfiberloss})     
+        args.append({'cframe_filename':cframe_filename,'night':night,'expid':expid,'camera':camera, 'specprod_dir':specprod_dir,'alpha_only':False , 'components': True,\
+                     'model_extfiberloss': model_extfiberloss, 'no_offsets': no_offsets})     
         
         print(night, expid, camera, cframe_filename)
         
@@ -196,7 +198,7 @@ if __name__ == '__main__':
                 aux.update({'tsnr2_{}_{}_signal'.format(tt.lower(), band.lower()): np.median(result['TSNR2_{}_{}_SIGNAL'.format(tt, band)])})
                 aux.update({'tsnr2_{}_{}_background'.format(tt.lower(), band.lower()): np.median(result['TSNR2_{}_{}_BACKGROUND'.format(tt, band)])})
                 
-    pickle.dump(auxs, open('/global/cscratch1/sd/mjwilson/trash/test_20210510_extfiberloss_{:d}.pickle'.format(np.int(model_extfiberloss)), 'wb'))
+    pickle.dump(auxs, open('/global/cscratch1/sd/mjwilson/trash/test_20210510_extfiberloss_{:d}_nooffsets_{:d}.pickle'.format(np.int(model_extfiberloss), np.int(no_offsets)), 'wb'))
         
     # pl.plot(aux['efftime_bright'], np.mean(result['TSNR2_BGS_R']), marker='.', lw=0.0, c='k', markersize=5)
     # pl.show()

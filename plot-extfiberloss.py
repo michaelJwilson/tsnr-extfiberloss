@@ -20,7 +20,9 @@ from   desispec.io.meta import findfile
 # fname = '/global/cscratch1/sd/mjwilson/trash/onepercent_nooffsets.pickle'
 # fname = '/global/cscratch1/sd/mjwilson/trash/onepercent_noextended.pickle'
 # fname = '/global/cscratch1/sd/mjwilson/trash/onepercent.pickle'
-fname   = '/global/cscratch1/sd/mjwilson/trash/test_20210510.pickle'
+
+# fname = '/global/cscratch1/sd/mjwilson/trash/test_20210510_extfiberloss_1.pickle'
+fname   = '/global/cscratch1/sd/mjwilson/trash/test_20210510_extfiberloss_1_nooffsets_1.pickle'
 
 auxs    = pickle.load( open( fname , "rb" ) ) 
 
@@ -62,23 +64,21 @@ for x in tables.dtype.names:
     print(x)
 '''
 
-tables = tables['expid', 'tileid', 'night', 'program', 'airmass', 'atm_extinction', 'realtime', 'signal', 'background', 'transp_obs',\
+tables = tables['expid', 'tileid', 'night', 'program', 'sbprof', 'airmass', 'atm_extinction', 'realtime', 'signal', 'background', 'transp_obs',\
                 'ffrac_psf', 'ffrac_elg', 'ffrac_bgs', 'thru_psf', 'req_efftime', 'efftime', 'tsnr2_spec_r', 'tsnr2_bgs_r', 'tsnr2_elg_r',\
-                'tsnr_seeing', 'tsnr_alpha', 'tsnr2_elg_r_signal', 'tsnr2_elg_r_background', 'tsnr2_qso_r_signal', 'tsnr2_qso_r_background']
+                'tsnr_seeing', 'tsnr_alpha', 'tsnr2_elg_r_signal', 'tsnr2_elg_r_background', 'tsnr2_qso_r_signal', 'tsnr2_qso_r_background',\
+                'tsnr2_bgs_r_background', 'tsnr2_bgs_r_signal']
 
 tables.sort('tsnr2_spec_r')
 
 daily  = Table.read('/project/projectdirs/desi/spectro/redux/daily/tsnr-exposures.fits', 1)
 daily  = Table(daily[daily['NIGHT'] == 20210510])
-daily  = daily['EXPID', 'SKY_MAG_AB_GFA', 'SKY_MAG_G_SPEC', 'SKY_MAG_R_SPEC', 'SKY_MAG_Z_SPEC', 'EFFTIME_GFA', 'EFFTIME_DARK_GFA', 'EFFTIME_BRIGHT_GFA', 'EFFTIME_BACKUP_GFA']
+daily  = daily['EXPID', 'SKY_MAG_AB_GFA', 'SKY_MAG_G_SPEC', 'SKY_MAG_R_SPEC', 'SKY_MAG_Z_SPEC', 'EFFTIME_ETC', 'EFFTIME_SPEC', 'EFFTIME_GFA', 'EFFTIME_DARK_GFA', 'EFFTIME_BRIGHT_GFA', 'EFFTIME_BACKUP_GFA']
 
 keys   = list(daily.dtype.names) 
 
 for x in keys:
-    # print(x)
-
-    daily[x.lower()] = daily[x.upper()]
-    
+    daily[x.lower()] = daily[x.upper()]    
     del daily[x]
 
 daily.pprint()
@@ -86,11 +86,8 @@ daily.pprint()
 tables = join(tables, daily, join_type='left', keys='expid')
 tables.pprint()
 
-# del tables['nominal_seeing_fwhm']
-
 tables.write(fname.replace('.pickle', '.fits'), format='fits', overwrite=True)
 
-'''
 #
 fig, axes = plt.subplots(1, 2, figsize=(10,5))
 
@@ -106,17 +103,3 @@ for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
     
 pl.show() 
 pl.clf()
-'''
-'''
-for i, (marker, program) in enumerate(zip(['^', '*'], ['DARK', 'BRIGHT'])):
-    isin = tables['program'] == program
-
-    gradient=np.sum(tables['tsnr2_spec_r'][isin] * tables['efftime_gfa'][isin]) / np.sum(tables['tsnr2_spec_r'][isin]**2.)
-    
-    axes[i].hist(tables['efftime'][isin] / (gradient * tables['tsnr2_spec_r'][isin]), histtype='step', bins=np.arange(0.7, 1.3, 0.05))
-
-    axes[i].set_ylabel('Counts')
-    axes[i].set_title('{} {}'.format(program, camera))
-
-pl.show()
-'''
