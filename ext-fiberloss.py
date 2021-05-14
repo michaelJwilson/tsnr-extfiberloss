@@ -32,7 +32,7 @@ from   desispec.efftime import compute_efftime
 
 np.random.seed(314)
 
-def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_only=False, model_extfiberloss=False, components=True, no_offsets=False) :
+def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_only=False, model_extfiberloss=False, components=True, no_offsets=False, sky_ivar=False, unit_alpha=False) :
     """                                                                                                                                                                                                                          
     Computes TSNR values                                                                                                                                                                                                          
     Args:                                                                                                                                                                                                                        
@@ -69,13 +69,15 @@ def compute_tsnr_values(cframe_filename,night,expid,camera,specprod_dir, alpha_o
     skymodel=read_sky(sky)
 
     if components:
-        results, alpha, seeing_fwhm, components = calc_tsnr2(frame, fiberflat=fiberflat,
-                                                             skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, model_extfiberloss=model_extfiberloss, components=True, no_offsets=no_offsets)
+        results, alpha, seeing_fwhm, components = calc_tsnr2(frame, fiberflat=fiberflat, skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only,\
+                                                             model_extfiberloss=model_extfiberloss, components=True, no_offsets=no_offsets, sky_ivar=sky_ivar,\
+                                                             unit_alpha=unit_alpha)
     else:
-        results, alpha, seeing_fwhm = calc_tsnr2(frame, fiberflat=fiberflat,
-                                                 skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, model_extfiberloss=model_extfiberloss, no_offsets=no_offsets)
+        results, alpha, seeing_fwhm = calc_tsnr2(frame, fiberflat=fiberflat, skymodel=skymodel, fluxcalib=fluxcalib, alpha_only=alpha_only, model_extfiberloss=model_extfiberloss,\
+                                                 no_offsets=no_offsets, sky_ivar=sky_ivar, unit_alpha=unit_alpha)
     
     table=Table()
+    
     for k in results:
         table[k] = results[k].astype(np.float32)
 
@@ -91,17 +93,19 @@ def wrapper(args):
     return compute_tsnr_values(**args)
 
 if __name__ == '__main__':
-    arms            =  ['b','r','z']
-    arms            =  ['r']
+    arms               =  ['b','r','z']
+    arms               =  ['r']
 
-    petals          =  np.arange(0,10,1).astype(str)
+    petals             =  np.arange(0,10,1).astype(str)
 
-    cameras         =  np.array([a+b for a in arms for b in petals])
+    cameras            =  np.array([a+b for a in arms for b in petals])
 
-    specprod_dir    = '/project/projectdirs/desi/spectro/redux/daily/'
+    specprod_dir       = '/project/projectdirs/desi/spectro/redux/daily/'
 
-    model_extfiberloss = True
+    model_extfiberloss = False
     no_offsets         = True
+    unit_alpha         = False
+    sky_ivar           = False
     
     # exposures     = Table.read('/project/projectdirs/desi/survey/observations/SV1/sv1-exposures.fits')
     # exposures       = Table.read('/project/projectdirs/desi/spectro/redux/daily/tsnr-exposures.fits', 'TSNR2_EXPID')
@@ -157,8 +161,13 @@ if __name__ == '__main__':
             continue
     '''
 
-    files = glob.glob('/project/projectdirs/desi/spectro/redux/daily/exposures/20210510/*/cframe-r?-*.fits')
+    files = []
 
+    for night in [20210510, 20210511, 20210512]:
+        files += glob.glob('/project/projectdirs/desi/spectro/redux/daily/exposures/{}/*/cframe-r0-*.fits'.format(night))
+    
+    print('{} to be solved for'.format(len(files)))
+    
     for row, x in enumerate(files):
         parts = x.split('/')
 
@@ -178,7 +187,7 @@ if __name__ == '__main__':
         
         auxs.append({'row': row, 'night': night, 'expid': expid, 'camera': camera, 'fibassgb': meta['FIBASSGN'], 'program': meta['PROGRAM'], 'tileid': meta['TILEID']})
         args.append({'cframe_filename':cframe_filename,'night':night,'expid':expid,'camera':camera, 'specprod_dir':specprod_dir,'alpha_only':False , 'components': True,\
-                     'model_extfiberloss': model_extfiberloss, 'no_offsets': no_offsets})     
+                     'model_extfiberloss': model_extfiberloss, 'no_offsets': no_offsets, 'sky_ivar': sky_ivar, 'unit_alpha': unit_alpha})     
         
         print(night, expid, camera, cframe_filename)
         
@@ -194,13 +203,14 @@ if __name__ == '__main__':
         for band in ['R']:
             for tt in ['ELG', 'BGS', 'QSO']:
                 aux.update({'tsnr2_{}_{}'.format(tt.lower(), band.lower()): np.median(result['TSNR2_{}_{}'.format(tt, band)])})
-                
                 aux.update({'tsnr2_{}_{}_signal'.format(tt.lower(), band.lower()): np.median(result['TSNR2_{}_{}_SIGNAL'.format(tt, band)])})
                 aux.update({'tsnr2_{}_{}_background'.format(tt.lower(), band.lower()): np.median(result['TSNR2_{}_{}_BACKGROUND'.format(tt, band)])})
                 
-    pickle.dump(auxs, open('/global/cscratch1/sd/mjwilson/trash/test_20210510_extfiberloss_{:d}_nooffsets_{:d}.pickle'.format(np.int(model_extfiberloss), np.int(no_offsets)), 'wb'))
-        
-    # pl.plot(aux['efftime_bright'], np.mean(result['TSNR2_BGS_R']), marker='.', lw=0.0, c='k', markersize=5)
-    # pl.show()
+    pickle.dump(auxs, open('/global/cscratch1/sd/mjwilson/trash/test_20210510_extfiberloss_{:d}_nooffsets_{:d}_sky_ivar_{:d}_unitalpha_{:d}.pickle'.format(np.int(model_extfiberloss), np.int(no_offsets),\
+                                                                                                                                                           np.int(sky_ivar), np.int(unit_alpha)), 'wb'))
 
+    print('Writing to: {}'.format('/global/cscratch1/sd/mjwilson/trash/test_20210510_extfiberloss_{:d}_nooffsets_{:d}_sky_ivar_{:d}_unitalpha_{:d}.pickle'.format(np.int(model_extfiberloss),\
+                                                                                                                                                                   np.int(no_offsets),\
+                                                                                                                                                                   np.int(sky_ivar),\
+                                                                                                                                                                   np.int(unit_alpha))))    
     print('\n\nDone.\n\n')

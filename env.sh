@@ -3,10 +3,9 @@
 # grep RUNNING /global/homes/j/jguy/redux/daily/run/scripts/night/20210322/poststdstar-20210322-00081536-a0123456789-40965715.log | grep b0
 # 
 export SPECPROD=daily
-# export DESI_LOGLEVEL=DEBUG
 export DESI_SPECTRO_CALIB=/global/cfs/cdirs/desi/spectro/desi_spectro_calib/trunk/  
-
 export DESIMODEL=/global/common/software/desi/cori/desiconda/20200801-1.4.0-spec/code/desimodel/master
+export DESI_LOGLEVEL=DEBUG
 
 #export DESI_SPECTRO_DATA=$CSCRATCH/trash/etc/desi/spectro/data
 
